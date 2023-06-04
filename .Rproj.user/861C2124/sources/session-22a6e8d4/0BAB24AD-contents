@@ -1,0 +1,212 @@
+rm(list=ls()) #czyszczenie obszaru roboczego
+setwd("C:/Users/Ilona/Downloads/miwf") # Wprowadz katalog roboczy 
+
+#1. Instalacja pakietów
+install.packages("zoo") #pakiet służący do porządkowania szeregów czasowych
+install.packages("tseries") #pakiet służący do analiz  szeregów czasowych
+install.packages("ggplot2") #uniwersalny pakiet do tworzenia ładnych wykresów w R 
+install.packages("knitr") #pakiet do tworzenia tabel podsumowujących wyniki
+
+require(zoo)
+require(tseries)
+require(ggplot2)
+require(knitr)
+
+#2. Daty
+mydate <- as.Date("01-01-2023")
+mydate
+
+mydate <- as.Date("2023-01-01")
+mydate
+
+mydate <- as.Date("01-01-2023", format="%d-%m-%Y")
+mydate
+
+mydate + 3
+
+mydate1 <- as.Date("2023-02-15")
+mydate1
+
+mydate < mydate1
+mydate >= mydate1
+mydate - mydate1
+
+class(mydate - mydate1)
+
+#3. Zebranie danych o indeksie WIG20 ze strony stooq
+filename <- "https://stooq.pl/q/d/l/?s=wig20&i=d" #link do strony z danymi (można wkleić w przeglądarce i pobrać plik)
+x <- read.csv(filename) 
+y <- x[,c(1,5)] #pozostawiamy daty oraz cenę zamknięcia sesji
+colnames(y) <- c("Daty","WIG")
+
+WIG<-as.numeric(y$WIG)
+daty<-as.Date(y$Daty, format="%Y-%m-%d")
+WIG20<-zoo(WIG, order.by = daty)
+
+## 4. Praca z szeregami zoo
+## Laczenie szeregow
+
+data<-WIG20 #dane ulozone chronologicznie
+data1 <- data[1: floor(0.75*length(data))] #zostawiamy 75% najstarszych obserwacji
+data2 <- data[floor(0.25*length(data)):length(data)] #zostawiamy 75% najnowszych obserwacji
+
+length(data1)
+length(data2)
+
+## Suma
+data3 <- merge(data1, data2)
+head(data3) #poczatek obiektu - najstarsze dane
+tail(data3) #koniec obiektu - najnowsze dane
+
+## Przeciecie (zachowamy tylko te obserwacje dla ktorych mamy dane w obu szeregach)
+data4 <- merge(data1, data2, all=FALSE)
+head(data4)
+tail(data4)
+
+## Okna (wybieramy dane z określonego zakresu czasu)
+data5 <- window(data, start=as.Date("2015-01-01"), end=as.Date("2015-12-31"))
+length(data5)
+head(data5)
+tail(data5)
+
+## Opoznienie o jeden okres
+data6 <- lag(data, -1)
+head(merge(data, data6))
+tail(merge(data, data6))
+
+## Przesuniecie w przod
+data7 <- lag(data, 1)
+head(merge(data, data7))
+tail(merge(data, data7))
+
+## Przyrosty
+data8 <- diff(data)
+head(data8)
+
+## Log-zwroty
+data9 <- diff(log(data))
+head(data9)
+
+## Proste zwroty
+data10 <- diff(data)/lag(data, -1)
+head(data10)
+
+## Wykresy zwrotów
+par(mfrow=c(2,1))
+plot(data9)
+plot(data10)
+
+#Roznica pomiedzy prostymi a logarytmicznymi stopami zwrotu
+x <- zoo(c(10,11,10)) 
+lz <- diff(log(x))
+pz <- diff(x)/lag(x, -1)
+
+Table <-cbind(x,lz, pz)
+colnames(Table)<- c("poziom","logarytmiczne stopy zwrotu","Proste stopy zwrotu")
+kable(Table)
+
+#4.Warunki i pętle
+
+## Przykład warunku if 
+if (mydate <= mydate1) {
+  print("wcześniej")
+} else
+{
+  print("później")
+}
+
+## Przykład pętli for (wolniejsze rozwiązanie)
+
+tmp <- proc.time()
+rollsd1 <- rep(0, length(data) -9)
+for(i in 1:(length(data) -9)){
+  rollsd1[i] <- sd(data[i:(i+9)])
+}
+proc.time() - tmp
+
+head(rollsd1)
+
+## funkcja apply
+
+tmp <- proc.time()
+rollsd2 <- rollapply(data, width=10, sd, by=1)
+proc.time() - tmp
+
+head(rollsd2)
+
+#5. Przykładowa analiza stóp zwrotu z WIG20
+r  <- diff(log(WIG20))
+N  <- 1250                             # ustalamy probe na podstawie ktorej liczymy statystyki
+r  <- tail(r,N)                        # Zostawiamy N najnowszych obserwacji
+R  <- coredata(r)                      # wariant szeregu bez dat
+
+# Panel wykresow: pelna proba 
+par(mfrow=c(2,1), cex = 0.7, bty="l") #grupowanie wykresów 2 rzedy i 1 kolumna
+plot(WIG20, main="Poziom", xlab="", ylab="")
+plot(r, main="stopy zwrotu", xlab="", ylab="")
+
+##########################################################
+# Statystyki opisowe dla logarytmicznych stóp zwrotu WIG #
+##########################################################
+
+require(moments)
+M1   = moment(R, order = 1, central = FALSE, na.rm = TRUE)
+M2   = moment(R, order = 2, central = TRUE, na.rm = TRUE)
+M3   = moment(R, order = 3, central = TRUE, na.rm = TRUE)
+M4   = moment(R, order = 4, central = TRUE, na.rm = TRUE)
+
+mu  = M1; mu               #średnia
+sig = sqrt(M2); sig        #odchylenie std. (zmienność)
+S0   = M3/(sig^3); S0      #skośność
+K0   = M4/(sig^4); K0      #kurtoza
+
+# Annualizacja
+Nyear <- 250
+muA   <- mu*Nyear; muA           #średnia roczna stopa zwrotu z WIG20
+sigA  <- sig*sqrt(Nyear); sigA   #odchylenie std. roczne 
+
+#######################################################
+# Histogram dla logarytmicznych stóp zwrotu #
+#######################################################
+
+R0        <- (R-mu)/sig #standaryzacja zmiennej
+bwdth     <- 0.1
+
+#Porownanie z rokladem normalnym
+ggplot(data.frame(R0), aes(x = R0)) +
+  theme_bw() +
+  geom_histogram(binwidth = bwdth, colour = "white", fill = "yellow4", size = 0.1) +
+  stat_function(fun = function(x) dnorm(x)*N*bwdth, color = "red", size = 1)
+  
+ggplot(data.frame(R0), aes(x = R0)) +
+  theme_bw() +
+  stat_function(fun = function(x) dnorm(x), color = "red", size = 1)+
+  geom_density(color="aquamarine4")  
+
+#######################################################
+# Wykres kwantyl-kwantyl (QQplot)                     #
+#######################################################
+
+# QQ plot
+q            <- seq(0.001, 0.999, 0.001)
+Qemp         <- quantile(R0,q)                    # kwantyl empiryczny
+Qteo         <- qnorm(q)                          # kwantyl teoretyczny (rozklad normalny)
+lim0         <- c(-4,4)                           # zakres na wykresie
+par(mfrow=c(1,1), cex = 0.7, bty="l")
+plot(Qemp,Qteo, main="QQplot", col="red", xlim = lim0, ylim = lim0,
+     xlab="kwantyl empiryczny", ylab="kwantyl teoretyczny") # plots the results
+abline(a=0,b=1, lwd=2)
+
+####################################################################
+#Wykres pudełkowy
+####################################################################
+a<-boxplot(r*100, range = 3,
+        main = "Dzienne logarytmiczne stopy zwrotu z WIG20",
+        xlab = "Stopa zwrotu (%)",
+        ylab = "",
+        col = "orange",
+        border = "black",
+        horizontal = TRUE,
+        notch = FALSE)
+
+a$out #outliers (obserwacje odstające)

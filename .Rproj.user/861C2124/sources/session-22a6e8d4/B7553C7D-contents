@@ -1,0 +1,136 @@
+rm(list=ls()) #czyszczenie obszaru roboczego
+
+# symbol # oznacza komentarz - elementy po tym znaku służą do tworzenia objaśnień
+
+#1. Podstawowe operacje matematyczne
+# Dodawanie
+5 + 5 
+# Mnożenie
+3 * 5
+# Potęgowanie
+2^5
+
+# Modulo (reszta)
+28 %% 6
+
+#funkcje matematyczne
+?log() #wyszukiwanie pomocy
+log(16,2)
+log(base=2,x=16) #inna niż domyślna kolejność argumentów
+
+#2. Wektory
+numeric_vector <- c(1, 9, 16, 25, 49)
+character_vector <- c("a", "b", "c")
+numeric_vector
+character_vector
+
+x <- c(1, 2, 3, 4, 5)
+names(x) <- c("a","b","c","d","e")
+length(x)
+x["a"]
+x[1]
+
+x*x
+t(x)%*%x #mnożenie macierzowe!
+
+#3. Macierze
+
+A <- matrix(seq(from = 1, by =0.5, length= 9)^2, nrow = 3, ncol=3, byrow=TRUE)
+A
+t(A) #transpozycja
+
+dim(A) #wymiary
+nrow(A)
+ncol(A)
+
+rownames(A) <- c("r1", "r2", "r3") #nadawanie nazw wierszy
+colnames(A) <- c("c1", "c2", "c3")
+A
+A[,"c2"]
+A["r2",]
+
+det(A)
+solve(A) #odwrotność macierzy
+A %*% solve(A) #prawidłowe mnożenie macierzy
+A * solve(A)
+
+#4. Ramki danych (data frame)
+mtcars #przykładowy zbiór danych o samochodach
+mtcars$mpg #wyciągnięcie wektora
+mtcars[,1]
+
+ramka <-data.frame(x,numeric_vector)
+ramka
+
+#5. klasy obiektow
+
+x <- c(2,1,8,16,4)
+class(x)
+is.numeric(x)
+is.character(x) #częstym błędem przy wczytywaniu danych jest traktowanie liczb jako tekstu
+
+
+x.char <- as.character(x)
+x.char
+x.ts   <- as.ts(x)
+x.ts 
+x.ts   <- ts(x, start=2000, freq=1)
+x.ts 
+x.date <- as.Date(x, origin="2000-01-01")
+x.date
+
+#6. Listy - łączenie obiektów różnego typu
+x <- seq(from=0, to = 10, by=0.5)
+y <- 2 + 3*x + rnorm(21)
+z <- lm(y ~ x)
+v<-summary(z)
+
+lista <- list(dane = rnorm(5), rozklad="normalny", par = list(mean=0, sd=1),estymacja=v)
+lista
+names(lista)
+summary(lista)
+
+lista[[1]]
+lista[["dane"]]
+lista$dane
+
+#7. Wczytywanie danych 
+setwd("C:/USERS/agutko/Downloads") # Wprowadz katalog roboczy w którym jest plik
+getwd() #sprawdzanie bieżącego katalogu roboczego
+
+data<- read.csv("01_dane_kryptowaluty_MIwF.csv", sep = ";", dec = ",")
+head(data) #wyświetla kilka pierwszych obserwacji
+data = tail(data, 365) #zostawiamy 365 obserwacji z końca (tu: najnowsze dane)
+
+mean(data$Bitcoin)
+sd(data$Bitcoin)
+min(data$Bitcoin)
+max(data$Bitcoin)
+summary(data$Bitcoin)
+
+#dokładniejsze sprawdzenie rozkładu (dalsze momenty)
+install.packages("moments") #polecenie służące do pobrania paczki; tylko 1 raz instalujemy
+require(moments)
+M1   = moment(data$Bitcoin, order = 1, central = FALSE, na.rm = TRUE)
+M2   = moment(data$Bitcoin, order = 2, central = TRUE, na.rm = TRUE)
+M3   = moment(data$Bitcoin, order = 3, central = TRUE, na.rm = TRUE)
+M4   = moment(data$Bitcoin, order = 4, central = TRUE, na.rm = TRUE)
+
+M1
+sigma = sqrt(M2); sigma
+Skosnosc   = M3/(sigma^3); Skosnosc
+Kurtoza   = M4/(sigma^4); Kurtoza
+
+#8. przykład wyciągania danych ze strony internetowej za pomocą API
+install.packages("crypto2") #pakiet pozwalający pobierać poprzez API dane ze strony: https://coinmarketcap.com
+install.packages("dplyr") # pakiet pomocniczy do filtrowania danych
+require(crypto2) #wczytujemy funkcje z paczki
+library(dplyr)
+
+kryptowaluty <- crypto_list(only_active=TRUE) #lista kryptowalut
+head(kryptowaluty)
+coins <- kryptowaluty %>% filter_all(any_vars(. %in% c("Bitcoin", "Ethereum", "Dogecoin"))) #filtrujemy tylko te nazwy które nas intersuja
+coins
+coin_hist <- crypto_history(coins, start_date="20140101", end_date="20221201", finalWait=FALSE)
+head(coin_hist)
+write.csv(coin_hist,"C:/USERS/agutko/Desktop/kryptowaluta.csv")
