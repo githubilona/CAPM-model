@@ -3,6 +3,7 @@ rm(list=ls()) #czyszczenie obszaru roboczego
 #1. Instalacja pakietów
 if (!require('zoo')) install.packages("zoo") #pakiet służący do porządkowania szeregów czasowych
 if (!require('ggplot2')) install.packages("ggplot2")
+if (!require('car')) install.packages("car")
 
 
 #Wczytywanie danych 
@@ -46,7 +47,7 @@ plot(lpp_sa, main = "Wykres data-cena zamk", xlab = "Data", ylab = "Cena zamkni�
 plot(r, main="stopy zwrotu", xlab="", ylab="")
 
 ##########################################################
-# Statystyki opisowe dla logarytmicznych stóp zwrotu WIG #
+# Statystyki opisowe dla logarytmicznych stóp zwrotu LPP #
 ##########################################################
 
 require(moments)
@@ -62,7 +63,7 @@ K0   = M4/(sig^4); K0      #kurtoza
 
 # Annualizacja
 Nyear <- 250
-muA   <- mu*Nyear; muA           #średnia roczna stopa zwrotu z WIG20
+muA   <- mu*Nyear; muA           #średnia roczna stopa zwrotu z lpp
 sigA  <- sig*sqrt(Nyear); sigA   #odchylenie std. roczne 
 
 #######################################################
@@ -95,11 +96,6 @@ ggplot(data.frame(R0), aes(x = R0)) +
 #wygenerowana tabela z podstawowymi statystykami
 df <- data.frame()  # Inicjalizacja pustej ramki danych
 
-# Przypisanie wartości do kolumny "SPOLKA"
-#df$SPOLKA <- c(min(r), max(r), mu, sig, S0, K0)
-
-#df['SPOLKA'] <- c(min(lpp_sa), max(lpp_sa), mu, sig, S0, K0)
-
 
 
 # Obliczanie podstawowych statystyk
@@ -124,19 +120,44 @@ qqline(R0)
 
 
 
-#model jednoczynnikowy sharpe'a
+#model jednoczynnikowy sharpe'a dla jednej spółki 
+
+# log stopy zwrotu
+returns <- lz
+
+# Średnia stopa zwrotu spółki
+mean_return <- mean(returns)
+
+# Stopa wolna od ryzyka
+risk_free_rate <- 0.01
+
+# Odchylenie standardowe stóp zwrotu spółki
+std_deviation <- sd(returns)
+
+# Obliczanie jednoczynnikowego modelu Sharpe'a
+sharpe_ratio <- (mean_return - risk_free_rate) / std_deviation
+
+# Wyświetlanie wyniku
+print(sharpe_ratio)
+
+
+
+
+
+
 
 # Import danych
 #rm(list=ls())
 basePath <- "C:/Users/Ilona/Downloads/"
 capmFilename <- "CAPM_data.csv"
+#capmFilename <- "05_capm_data_MIwF.csv"
 ipath <- paste(basePath,capmFilename, sep = "")
 dane <- read.csv(ipath, header=TRUE, sep=";", dec=",", row.names="daty")
 
 T <- nrow(dane)     # liczba obserwacji
 N <- ncol(dane)-2   # liczba akcji
-ri <- dane[,1:N];   # stopy zwrotow z akcji               ri- risk investmnet
-rm <- dane[,N+1];   # stopy zwrotów portfela rynkowego    rm- risk market
+ri <- dane[,1:N];   # stopy zwrotow z akcji               ri- Return on security i (
+rm <- dane[,N+1];   # stopy zwrotów portfela rynkowego    rm- Return on market index
 rf <- dane[,N+2]    # stopy wolne od ryzyka               rf- risk free
 daty  <- as.Date(rownames(dane)); 
 nazwy <- colnames(ri)
@@ -168,7 +189,7 @@ funBet <- function(ri, rm, nazwy, cons){
 z <- funBet(ri,rm,nazwy,cons=1)
 
 #Wyniki dla 30 pierwszych akcji wyświetla pierwsze 30 wierszy z kolumny "Wsp" 
-z$Wsp[1:1,]
+z$Wsp[1:30,]
 
 #Statystyki opisowe dla wszystkich oszacowań
 summary(z$Wsp)
@@ -199,14 +220,26 @@ linearHypothesis(SML, hypothesis.matrix = diag(1,3),
 
 
 
+
+
+
+
+
 # Test Sharpe'a-Coopera (1972) modelu CAPM
-Table <- matrix(NA,10,12) ## tabela 10 wierzszy i 12 kolumn 
-rownames(Table) <- paste("portfel",1:10) # nazywamy wiersze portfel1, portfel2, ... itd.
+Table <- matrix(NA,30,12) ## tabela 10 wierzszy i 12 kolumn 
+rownames(Table) <- paste("portfel",1:30) # nazywamy wiersze portfel1, portfel2, ... itd.
 colnames(Table) <- c("beta06","beta07", "beta08","beta09","beta10",as.character(2006:2010),"beta06-10","2006-2010")
 
-p.ret     <- matrix(NA,10,5) # średnie miesięczne stopy zwrotu dla każdego z 10 portfeli w latach 2006-2010 (5 kolumn)
-print(p.ret)
-p.bet     <- matrix(NA,10,5)
+p.ret     <- matrix(NA,30,5) # średnie miesięczne stopy zwrotu dla każdego z 30 portfeli w latach 2006-2010 (5 kolumn)
+p.bet     <- matrix(NA,30,5)
+
+
+
+
+#print(ri[(1+0*12):(60+0*12),])
+#print(ri[(1+4*12):(60+4*12),])
+
+
 
 for (p in 0:4){
   riSC   <- ri[(1+p*12):(60+p*12),] # dla p =0 wybieramy wiersze 1-60 (wiersze dla pierwszych pięciu lat 5*12=60)
@@ -222,8 +255,10 @@ for (p in 0:4){
   print(BetSort)
   print(indx)
   
-  for (i in 0:9){
+  for (i in 0:10){
+    print(i)
     ret   <- ri[(61+p*12):(72+p*12),indx[(i*5+1):(i*5+5)]];
+    print(ret)
     p.ret[i+1,p+1] <- mean(colMeans(ret)); 
     p.bet[i+1,p+1] <- mean(BetSort[(i*5+1):(i*5+5)])
   }
@@ -235,21 +270,6 @@ Table[,6:10] <- p.ret
 Table[,11]   <- rowMeans(p.bet)
 Table[,12]   <- rowMeans(p.ret)
 Table
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
