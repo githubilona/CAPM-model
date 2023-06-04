@@ -3,7 +3,7 @@
     "path": "~/projekt-miwf/Main.R",
     "project_path": "Main.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "3685255818",
     "contents": "",
     "dirty": false,
     "created": 1685654736300.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "199,18",
-        "scrollLine": "185"
+        "cursorPosition": "175,0",
+        "scrollLine": "151"
     },
     "folds": "",
-    "lastKnownWriteTime": 1685874815,
+    "lastKnownWriteTime": 1685901911,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1685874815,
+    "last_content_update": 1685901911469,
     "read_only": false,
     "read_only_alternatives": []
 }

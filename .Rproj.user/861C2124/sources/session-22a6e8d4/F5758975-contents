@@ -1,5 +1,10 @@
 rm(list=ls()) #czyszczenie obszaru roboczego
 
+#1. Instalacja pakietów
+if (!require('zoo')) install.packages("zoo") #pakiet służący do porządkowania szeregów czasowych
+if (!require('ggplot2')) install.packages("ggplot2")
+
+
 #Wczytywanie danych 
 setwd("C:/Users/Ilona/Downloads") # Wprowadz katalog roboczy w którym jest plik
 getwd() #sprawdzanie bieżącego katalogu roboczego
@@ -122,7 +127,7 @@ qqline(R0)
 #model jednoczynnikowy sharpe'a
 
 # Import danych
-rm(list=ls())
+#rm(list=ls())
 basePath <- "C:/Users/Ilona/Downloads/"
 capmFilename <- "CAPM_data.csv"
 ipath <- paste(basePath,capmFilename, sep = "")
@@ -130,9 +135,9 @@ dane <- read.csv(ipath, header=TRUE, sep=";", dec=",", row.names="daty")
 
 T <- nrow(dane)     # liczba obserwacji
 N <- ncol(dane)-2   # liczba akcji
-ri <- dane[,1:N];   # stopy zwrotow z akcji
-rm <- dane[,N+1];   # stopy zwrotów portfela rynkowego
-rf <- dane[,N+2]    # stopy wolne od ryzyka
+ri <- dane[,1:N];   # stopy zwrotow z akcji               ri- risk investmnet
+rm <- dane[,N+1];   # stopy zwrotów portfela rynkowego    rm- risk market
+rf <- dane[,N+2]    # stopy wolne od ryzyka               rf- risk free
 daty  <- as.Date(rownames(dane)); 
 nazwy <- colnames(ri)
 
@@ -163,7 +168,7 @@ funBet <- function(ri, rm, nazwy, cons){
 z <- funBet(ri,rm,nazwy,cons=1)
 
 #Wyniki dla 30 pierwszych akcji wyświetla pierwsze 30 wierszy z kolumny "Wsp" 
-z$Wsp[1:30,]
+z$Wsp[1:1,]
 
 #Statystyki opisowe dla wszystkich oszacowań
 summary(z$Wsp)
@@ -187,6 +192,71 @@ summary(SML)
 ym   <- mean(rm)-mean(rf);          # nadzwyczajna stopa rynkowa
 linearHypothesis(SML, hypothesis.matrix = diag(1,3), 
                  rhs=c(0,ym,0), test="F")
+
+
+
+
+
+
+
+# Test Sharpe'a-Coopera (1972) modelu CAPM
+Table <- matrix(NA,10,12) ## tabela 10 wierzszy i 12 kolumn 
+rownames(Table) <- paste("portfel",1:10) # nazywamy wiersze portfel1, portfel2, ... itd.
+colnames(Table) <- c("beta06","beta07", "beta08","beta09","beta10",as.character(2006:2010),"beta06-10","2006-2010")
+
+p.ret     <- matrix(NA,10,5) # średnie miesięczne stopy zwrotu dla każdego z 10 portfeli w latach 2006-2010 (5 kolumn)
+print(p.ret)
+p.bet     <- matrix(NA,10,5)
+
+for (p in 0:4){
+  riSC   <- ri[(1+p*12):(60+p*12),] # dla p =0 wybieramy wiersze 1-60 (wiersze dla pierwszych pięciu lat 5*12=60)
+  rmSC   <- rm[(1+p*12):(60+p*12)] # tempo wzrostu indeksu giełdowego
+  rfSC   <- rf[(1+p*12):(60+p*12)] # stopa zwrotu instrumentów wolnych od ryzyka
+  
+  # wsp. beta
+  z <- funBet(riSC-rfSC,rmSC-rfSC,nazwy, cons=0)
+  beta <- z$Wsp[,1] # beta - pierwsza kolumna macierzy wynikowej
+  ind <- sort.int(beta, decreasing = FALSE, index.return = TRUE) # sortowanie bety od najmniejszej do najw.
+  BetSort   <- ind$x # posortowane wg wartści bety rosnąco
+  indx      <- ind$ix # ustawiliśmy index.return = TRUE, więc zwracamy tablice indeksów np. [2, 4] - w tablicy BetaSort na 1 miejscu jest wartość o indexie 2 z beta (nieposortowanej)
+  print(BetSort)
+  print(indx)
+  
+  for (i in 0:9){
+    ret   <- ri[(61+p*12):(72+p*12),indx[(i*5+1):(i*5+5)]];
+    p.ret[i+1,p+1] <- mean(colMeans(ret)); 
+    p.bet[i+1,p+1] <- mean(BetSort[(i*5+1):(i*5+5)])
+  }
+}
+
+options(digits=3)
+Table[,1:5]   <- p.bet
+Table[,6:10] <- p.ret
+Table[,11]   <- rowMeans(p.bet)
+Table[,12]   <- rowMeans(p.ret)
+Table
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #Wykres SML
 SMLx  <- seq(0,2,0.01)
 SMLy  <- mean(rf) + SMLx*ym
